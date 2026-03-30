@@ -224,11 +224,11 @@ def plot_and_save(sizes, numpy_times, scipy_times, filename="comparison.png"):
     # create a figure with a wide aspect ratio so the x-axis has room to breathe
     plt.figure(figsize=(11, 6))
 
-    # plot numpy line in teal
-    plt.plot(sizes, numpy_times, label="numpy.linalg.solve", color="teal", linewidth=3)
-
-    # plot scipy line in firebrick - contrasts well with teal
+    # plot scipy line
     plt.plot(sizes, scipy_times, label="scipy.optimize.root", color="firebrick", linewidth=3)
+
+    # plot numpy line
+    plt.plot(sizes, numpy_times, label="numpy.linalg.solve", color="teal", linewidth=3)
 
     # label the x-axis so the reader knows what n means
     plt.xlabel("Matrix size n")
@@ -256,7 +256,6 @@ def plot_and_save(sizes, numpy_times, scipy_times, filename="comparison.png"):
 
 # -------------------------------------------------------
 # pytest entry points
-# run with: pytest compare.py
 # -------------------------------------------------------
 
 def test_solve_with_root_examples():

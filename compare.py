@@ -127,7 +127,7 @@ def check_correctness_vs_numpy(num_tests=100, max_size=100):
     max_size - maximum matrix size to use
     """
 
-    np.random.seed(100)  # fix seed
+    np.random.seed(100) # fix seed
 
     for _ in range(num_tests):
         n = np.random.randint(1, max_size + 1)
@@ -152,16 +152,17 @@ def check_correctness_vs_numpy(num_tests=100, max_size=100):
 
         # case 1: both found a solution -> results must match
         if not numpy_failed and not scipy_failed:
-            assert np.allclose(x_numpy, x_scipy, atol=1e-5), \
-                f"solutions differ for size={n}"
+            assert np.allclose(x_numpy, x_scipy, atol=1e-5)
 
         # case 2: both failed -> both agree the matrix is singular -> ok
         elif numpy_failed and scipy_failed:
             pass
 
         # case 3: only one failed -> they disagree -> something is wrong
+        elif numpy_failed and not scipy_failed:
+            assert False, f"size={n}: numpy failed (singular) but scipy found a solution - solvers disagree"
         else:
-            assert False, f"solvers disagree on singular/non-singular for size={n}"
+            assert False, f"size={n}: scipy failed (singular) but numpy found a solution - solvers disagree"
 
 
 # -------------------------------------------------------
@@ -169,44 +170,45 @@ def check_correctness_vs_numpy(num_tests=100, max_size=100):
 # compare runtimes over sizes 1..1000 and plot
 # -------------------------------------------------------
 
-def compare_performance(sizes, num_runs=1):
+def compare_performance(sizes, num_runs=5):
     """
     Times numpy.linalg.solve and solve_with_root on random systems of each given size.
-    Returns the average runtimes as two lists (one per solver).
+    Each size is measured num_runs times and the average is returned.
 
     sizes - list of matrix sizes to test
-    num_runs - how many times to repeat each measurement (results are averaged)
+    num_runs - how many times to measure each size (default 5)
 
     returns (numpy_times, scipy_times) - average runtime in seconds per size
     """
 
-    numpy_times = []  # will hold one average time per size for numpy
-    scipy_times = []  # same for scipy
+    numpy_times = []
+    scipy_times = []
 
     for n in sizes:
-        np_total = 0.0  # accumulate total time over num_runs for numpy
-        sp_total = 0.0  # accumulate total time over num_runs for scipy
+        np_total = 0.0
+        sp_total = 0.0
+        runs = 0
 
+        # run num_runs times and average - skip singular matrices
         for _ in range(num_runs):
-            # keep trying until a non-singular matrix is found for this size
-            while True:
-                a = np.random.randn(n, n)
-                b = np.random.randn(n)
-                try:
-                    t = perf_counter()
-                    np.linalg.solve(a, b)
-                    np_total += perf_counter() - t
+            a = np.random.randn(n, n)
+            b = np.random.randn(n)
+            try:
+                t = perf_counter()
+                np.linalg.solve(a, b)
+                np_total += perf_counter() - t
 
-                    t = perf_counter()
-                    solve_with_root(a, b)
-                    sp_total += perf_counter() - t
-                    break  # success - move on to next run
-                except (np.linalg.LinAlgError, ValueError):
-                    pass  # singular matrix - try again with a new one
+                t = perf_counter()
+                solve_with_root(a, b)
+                sp_total += perf_counter() - t
 
-        # divide by num_runs to get the average time for this size
-        numpy_times.append(np_total / num_runs)
-        scipy_times.append(sp_total / num_runs)
+                runs += 1
+            except (np.linalg.LinAlgError, ValueError):
+                pass  # singular matrix - skip this run
+
+        if runs > 0:
+            numpy_times.append(np_total / runs)
+            scipy_times.append(sp_total / runs)
 
     return numpy_times, scipy_times
 
@@ -221,7 +223,7 @@ def plot_and_save(sizes, numpy_times, scipy_times, filename="comparison.png"):
     filename - output file path
     """
 
-    # create a figure with a wide aspect ratio so the x-axis has room to breathe
+    # create a figure
     plt.figure(figsize=(11, 6))
 
     # plot scipy line
@@ -230,16 +232,16 @@ def plot_and_save(sizes, numpy_times, scipy_times, filename="comparison.png"):
     # plot numpy line
     plt.plot(sizes, numpy_times, label="numpy.linalg.solve", color="teal", linewidth=3)
 
-    # label the x-axis so the reader knows what n means
+    # label the x-axis
     plt.xlabel("Matrix size n")
 
-    # label the y-axis - units are seconds
-    plt.ylabel("Average runtime (seconds)")
+    # label the y-axis
+    plt.ylabel("Average runtime over 5 runs (seconds)")
 
-    # title at the top of the graph describing what we're comparing
+    # title at the top of the graph
     plt.title("numpy.linalg.solve vs scipy.optimize.root - runtime comparison")
 
-    # show a legend so the reader knows which line is which
+    # show a legend
     plt.legend()
 
     # add a light grid to make it easier to read values off the chart
@@ -248,7 +250,7 @@ def plot_and_save(sizes, numpy_times, scipy_times, filename="comparison.png"):
     # remove extra whitespace around the plot before saving
     plt.tight_layout()
 
-    # save the figure to disk as a PNG file
+    # save the figure
     plt.savefig(filename, dpi=150)
 
     print(f"saved graph to {filename}")
@@ -300,14 +302,14 @@ if __name__ == "__main__":
     # small sizes are cheap so we can afford more points there,
     # large sizes take long with scipy so we measure fewer of them
     sizes = (
-        list(range(1, 51, 1))        # 1..50   - every single size
-        + list(range(51, 201, 5))    # 51..200 - every 5
+        list(range(1, 51, 2))        # 1..50    - every 2
+        + list(range(51, 201, 5))    # 51..200  - every 5
         + list(range(201, 501, 20))  # 201..500 - every 20
         + list(range(501, 1001, 50)) # 501..950 - every 50
         + [1000]                     # always include 1000 exactly
     )
 
-    np.random.seed(100)  # fix seed
-    numpy_times, scipy_times = compare_performance(sizes, num_runs=1)
+    np.random.seed(100) # fix seed
+    numpy_times, scipy_times = compare_performance(sizes, num_runs=5)
 
     plot_and_save(sizes, numpy_times, scipy_times, filename="comparison.png")
